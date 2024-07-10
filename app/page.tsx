@@ -45,7 +45,7 @@ const Home: React.FC = () => {
         socket.emit('subscribe', `logs:${projectSlug}`);
         
         // Start the timer after deployment is initiated
-        setCountdown(40);
+        setCountdown(60);
         setShowTimer(true);
       }
     } catch (error) {
