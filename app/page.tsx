@@ -45,7 +45,7 @@ const Home: React.FC = () => {
         socket.emit('subscribe', `logs:${projectSlug}`);
         
         // Start the timer after deployment is initiated
-        setCountdown(25);
+        setCountdown(40);
         setShowTimer(true);
       }
     } catch (error) {
@@ -83,8 +83,8 @@ const Home: React.FC = () => {
         setCountdown((prevCountdown) => prevCountdown - 1);
       }, 1000);
     } else if (countdown === 0) {
-      // Automatically handle showing the deployPreviewURL after countdown ends
-      setCountdown(-1); // Ensure countdown is only processed once
+      // Countdown has finished, show preview URL
+      setShowTimer(false);
     }
 
     return () => clearTimeout(countdownTimer);
@@ -115,7 +115,7 @@ const Home: React.FC = () => {
             <p>Deploying... Showing preview URL in {countdown} seconds...</p>
           </div>
         )}
-        {deployPreviewURL && countdown === 0 && (
+        {!showTimer && deployPreviewURL && (
           <div className="mt-2 bg-slate-900 py-4 px-2 rounded-lg">
             <p>
               Preview URL{' '}
