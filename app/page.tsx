@@ -1,62 +1,61 @@
 "use client";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { io } from "socket.io-client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Github } from "lucide-react";
-import { Fira_Code } from "next/font/google";
-import axios from "axios";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { io, Socket } from 'socket.io-client';
+import axios from 'axios';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Github } from 'lucide-react';
+import { Fira_Code } from 'next/font/google';
 
-const socket = io("https://vercel-api-server.onrender.com");
+const socket: Socket = io('https://vercel-api-server.onrender.com');
 
-const firaCode = Fira_Code({ subsets: ["latin"] });
+const firaCode = Fira_Code({ subsets: ['latin'] });
 
-export default function Home() {
-  const [repoURL, setURL] = useState<string>("");
-
+const Home: React.FC = () => {
+  const [repoURL, setURL] = useState<string>('');
   const [logs, setLogs] = useState<string[]>([]);
-
-  const [loading, setLoading] = useState(false);
-
+  const [loading, setLoading] = useState<boolean>(false);
   const [projectId, setProjectId] = useState<string | undefined>();
-  const [deployPreviewURL, setDeployPreviewURL] = useState<
-    string | undefined
-  >();
-
+  const [deployPreviewURL, setDeployPreviewURL] = useState<string | undefined>();
+  const [countdown, setCountdown] = useState<number>(20); // Countdown timer in seconds
   const logContainerRef = useRef<HTMLElement>(null);
 
   const isValidURL: [boolean, string | null] = useMemo(() => {
-    if (!repoURL || repoURL.trim() === "") return [false, null];
-    const regex = new RegExp(
-      /^(?:https?:\/\/)?(?:www\.)?github\.com\/([^\/]+)\/([^\/]+)(?:\/)?$/
-    );
-    return [regex.test(repoURL), "Enter valid Github Repository URL"];
+    if (!repoURL || repoURL.trim() === '') return [false, null];
+    const regex = /^(?:https?:\/\/)?(?:www\.)?github\.com\/([^\/]+)\/([^\/]+)(?:\/)?$/;
+    return [regex.test(repoURL), 'Enter valid Github Repository URL'];
   }, [repoURL]);
 
   const handleClickDeploy = useCallback(async () => {
     setLoading(true);
 
-    const { data } = await axios.post(`https://vercel-api-server.onrender.com/project`, {
-      gitURL: repoURL,
-      slug: projectId,
-    });
+    try {
+      const { data } = await axios.post('https://vercel-api-server.onrender.com/project', {
+        gitURL: repoURL,
+        slug: projectId,
+      });
 
-    if (data && data.data) {
-      const { projectSlug, url } = data.data;
-      setProjectId(projectSlug);
-      setDeployPreviewURL(url);
+      if (data && data.data) {
+        const { projectSlug, url } = data.data;
+        setProjectId(projectSlug);
+        setDeployPreviewURL(url);
 
-      console.log(`Subscribing to logs:${projectSlug}`);
-      socket.emit("subscribe", `logs:${projectSlug}`);
+        console.log(`Subscribing to logs:${projectSlug}`);
+        socket.emit('subscribe', `logs:${projectSlug}`);
+      }
+    } catch (error) {
+      console.error('Failed to deploy:', error);
+    } finally {
+      setLoading(false);
     }
   }, [projectId, repoURL]);
 
-  const handleSocketIncommingMessage = useCallback((message:string) => {
-    console.log(`[Incoming Socket Message]:`, typeof message, message);
+  const handleSocketIncommingMessage = useCallback((message: string) => {
+    console.log('[Incoming Socket Message]:', typeof message, message);
     try {
       const parsedMessage = JSON.parse(message);
       const { log } = parsedMessage;
-      setLogs((prev) => [...prev, log]);
+      setLogs((prevLogs) => [...prevLogs, log]);
       logContainerRef.current?.scrollIntoView({ behavior: 'smooth' });
     } catch (error) {
       console.error('Failed to parse incoming message:', error);
@@ -64,12 +63,27 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    socket.on("message", handleSocketIncommingMessage);
+    socket.on('message', handleSocketIncommingMessage);
 
     return () => {
-      socket.off("message", handleSocketIncommingMessage);
+      socket.off('message', handleSocketIncommingMessage);
     };
   }, [handleSocketIncommingMessage]);
+
+  useEffect(() => {
+    let countdownTimer: NodeJS.Timeout;
+
+    if (countdown > 0) {
+      countdownTimer = setTimeout(() => {
+        setCountdown((prevCountdown) => prevCountdown - 1);
+      }, 1000);
+    } else if (deployPreviewURL && countdown === 0) {
+      // Automatically handle showing the deployPreviewURL after countdown ends
+      setCountdown(-1); // Ensure countdown is only processed once
+    }
+
+    return () => clearTimeout(countdownTimer);
+  }, [countdown, deployPreviewURL]);
 
   return (
     <main className="flex justify-center items-center h-[100vh]">
@@ -89,14 +103,20 @@ export default function Home() {
           disabled={!isValidURL[0] || loading}
           className="w-full mt-3"
         >
-          {loading ? "In Progress" : "Deploy"}
+          {loading ? 'In Progress' : 'Deploy'}
         </Button>
-        {deployPreviewURL && (
+        {countdown > 0 && (
+          <div className="mt-2 bg-slate-900 py-4 px-2 rounded-lg">
+            <p>Deploying... Showing preview URL in {countdown} seconds...</p>
+          </div>
+        )}
+        {deployPreviewURL && countdown === 0 && (
           <div className="mt-2 bg-slate-900 py-4 px-2 rounded-lg">
             <p>
-              Preview URL{" "}
+              Preview URL{' '}
               <a
                 target="_blank"
+                rel="noopener noreferrer"
                 className="text-sky-400 bg-sky-950 px-3 py-2 rounded-lg"
                 href={deployPreviewURL}
               >
@@ -122,4 +142,6 @@ export default function Home() {
       </div>
     </main>
   );
-}
+};
+
+export default Home;
