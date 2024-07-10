@@ -17,7 +17,8 @@ const Home: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [projectId, setProjectId] = useState<string | undefined>();
   const [deployPreviewURL, setDeployPreviewURL] = useState<string | undefined>();
-  const [countdown, setCountdown] = useState<number>(20); // Countdown timer in seconds
+  const [countdown, setCountdown] = useState<number>(0); // Countdown timer in seconds
+  const [showTimer, setShowTimer] = useState<boolean>(false); // Flag to show the timer
   const logContainerRef = useRef<HTMLElement>(null);
 
   const isValidURL: [boolean, string | null] = useMemo(() => {
@@ -42,6 +43,10 @@ const Home: React.FC = () => {
 
         console.log(`Subscribing to logs:${projectSlug}`);
         socket.emit('subscribe', `logs:${projectSlug}`);
+        
+        // Start the timer after deployment is initiated
+        setCountdown(25);
+        setShowTimer(true);
       }
     } catch (error) {
       console.error('Failed to deploy:', error);
@@ -73,17 +78,17 @@ const Home: React.FC = () => {
   useEffect(() => {
     let countdownTimer: NodeJS.Timeout;
 
-    if (countdown > 0) {
+    if (showTimer && countdown > 0) {
       countdownTimer = setTimeout(() => {
         setCountdown((prevCountdown) => prevCountdown - 1);
       }, 1000);
-    } else if (deployPreviewURL && countdown === 0) {
+    } else if (countdown === 0) {
       // Automatically handle showing the deployPreviewURL after countdown ends
       setCountdown(-1); // Ensure countdown is only processed once
     }
 
     return () => clearTimeout(countdownTimer);
-  }, [countdown, deployPreviewURL]);
+  }, [countdown, showTimer]);
 
   return (
     <main className="flex justify-center items-center h-[100vh]">
@@ -105,7 +110,7 @@ const Home: React.FC = () => {
         >
           {loading ? 'In Progress' : 'Deploy'}
         </Button>
-        {countdown > 0 && (
+        {showTimer && countdown > 0 && (
           <div className="mt-2 bg-slate-900 py-4 px-2 rounded-lg">
             <p>Deploying... Showing preview URL in {countdown} seconds...</p>
           </div>
